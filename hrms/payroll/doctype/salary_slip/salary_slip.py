@@ -315,14 +315,11 @@ class SalarySlip(TransactionBase):
 		if payroll_entry.get_sal_slip_list(ss_status=0):
 			return
 
-		existing_jv = frappe.get_all(
-			"Journal Entry Account",
-			{"reference_type": "Payroll Entry", "reference_name": self.payroll_entry, "docstatus": 1},
-			pluck="parent",
-			distinct=True,
-		)
-
-		if existing_jv:
+		if frappe.db.get_value(
+			"Salary Slip",
+			{"payroll_entry": self.payroll_entry, "docstatus": 1, "journal_entry": ("is", "set")},
+			"journal_entry",
+		):
 			return
 
 		submitted_salary_slips = [

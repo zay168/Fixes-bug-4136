@@ -315,10 +315,11 @@ class SalarySlip(TransactionBase):
 		if payroll_entry.get_sal_slip_list(ss_status=0):
 			return
 
-		if frappe.db.get_value(
+		if frappe.get_all(
 			"Salary Slip",
 			{"payroll_entry": self.payroll_entry, "docstatus": 1, "journal_entry": ("is", "set")},
-			"journal_entry",
+			pluck="name",
+			limit=1,
 		):
 			return
 

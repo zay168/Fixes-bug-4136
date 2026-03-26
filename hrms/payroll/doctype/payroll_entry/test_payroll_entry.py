@@ -566,6 +566,35 @@ class TestPayrollEntry(HRMSTestSuite):
 					self.assertEqual(account.party_type, None)
 					self.assertEqual(account.party, None)
 
+	def test_accrual_jv_on_individual_salary_slip_submit(self):
+		company_doc = frappe.get_doc("Company", "_Test Company")
+		employee = make_employee("test_individual_submit_accrual@payroll.com", company=company_doc.name)
+
+		setup_salary_structure(employee, company_doc)
+
+		dates = get_start_end_dates("Monthly", nowdate())
+		payroll_entry = get_payroll_entry(
+			start_date=dates.start_date,
+			end_date=dates.end_date,
+			payable_account=company_doc.default_payroll_payable_account,
+			currency=company_doc.default_currency,
+			company=company_doc.name,
+			cost_center="Main - _TC",
+		)
+		payroll_entry.submit()
+
+		salary_slips = frappe.get_all(
+			"Salary Slip",
+			{"payroll_entry": payroll_entry.name, "docstatus": 0},
+			pluck="name",
+		)
+
+		for ss_name in salary_slips:
+			frappe.get_doc("Salary Slip", ss_name).submit()
+
+		journal_entries = get_linked_journal_entries(payroll_entry.name, docstatus=1)
+		self.assertTrue(journal_entries)
+
 	def test_advance_deduction_in_accrual_journal_entry(self):
 		company_doc = frappe.get_doc("Company", "_Test Company")
 		employee = make_employee("test_employee@payroll.com", company=company_doc.name)

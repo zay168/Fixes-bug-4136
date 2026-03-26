@@ -306,6 +306,45 @@ class SalarySlip(TransactionBase):
 		self.update_payment_status_for_gratuity_and_leave_encashment()
 		self.create_benefits_ledger_entry()
 
+		if not frappe.flags.via_payroll_entry and self.payroll_entry:
+			self._make_accrual_jv_entry_if_applicable()
+
+	def _make_accrual_jv_entry_if_applicable(self):
+		SalarySlip = frappe.qb.DocType("Salary Slip")
+		pending_slips = (
+			frappe.qb.from_(SalarySlip)
+			.select(SalarySlip.name)
+			.where(
+				(SalarySlip.payroll_entry == self.payroll_entry)
+				& (SalarySlip.docstatus == 0)
+			)
+		).run()
+
+		if pending_slips:
+			return
+
+		existing_jv = frappe.get_all(
+			"Journal Entry Account",
+			{"reference_type": "Payroll Entry", "reference_name": self.payroll_entry, "docstatus": 1},
+			pluck="parent",
+			distinct=True,
+		)
+
+		if existing_jv:
+			return
+
+		payroll_entry = frappe.get_doc("Payroll Entry", self.payroll_entry)
+		submitted_salary_slips = [
+			frappe.get_doc("Salary Slip", ss)
+			for ss in frappe.get_all(
+				"Salary Slip",
+				{"payroll_entry": self.payroll_entry, "docstatus": 1},
+				pluck="name",
+			)
+		]
+		payroll_entry.make_accrual_jv_entry(submitted_salary_slips)
+		payroll_entry.db_set({"salary_slips_submitted": 1, "status": "Submitted", "error_message": ""})
+
 	def update_payment_status_for_gratuity_and_leave_encashment(self):
 		additional_salary_docs = frappe.db.get_all(
 			"Additional Salary",

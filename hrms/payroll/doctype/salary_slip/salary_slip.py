@@ -310,17 +310,9 @@ class SalarySlip(TransactionBase):
 			self._make_accrual_jv_entry_if_applicable()
 
 	def _make_accrual_jv_entry_if_applicable(self):
-		SalarySlip = frappe.qb.DocType("Salary Slip")
-		pending_slips = (
-			frappe.qb.from_(SalarySlip)
-			.select(SalarySlip.name)
-			.where(
-				(SalarySlip.payroll_entry == self.payroll_entry)
-				& (SalarySlip.docstatus == 0)
-			)
-		).run()
+		payroll_entry = frappe.get_doc("Payroll Entry", self.payroll_entry)
 
-		if pending_slips:
+		if payroll_entry.get_sal_slip_list(ss_status=0):
 			return
 
 		existing_jv = frappe.get_all(
@@ -333,7 +325,6 @@ class SalarySlip(TransactionBase):
 		if existing_jv:
 			return
 
-		payroll_entry = frappe.get_doc("Payroll Entry", self.payroll_entry)
 		submitted_salary_slips = [
 			frappe.get_doc("Salary Slip", ss)
 			for ss in frappe.get_all(
